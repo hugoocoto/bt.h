@@ -1,0 +1,16 @@
+name: yaci tests
+on: [push, pull_request]
+
+jobs:
+  ubuntu:
+    strategy:
+      matrix:
+        cc: [gcc, clang]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone GIT repo
+        uses: actions/checkout@v4
+      - name: Build tests
+        run: |
+          make CC=${{ matrix.cc }}
+          ./test
