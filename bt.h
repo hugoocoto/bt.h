@@ -65,6 +65,9 @@ extern "C" {
 #define _POSIX_C_SOURCE 200809L
 #endif
 
+#ifndef BT_H_
+#define BT_H_
+
 #include <stdio.h>
 
 typedef struct BT BT;
@@ -77,9 +80,6 @@ extern void bt_destroy(BT *);                          /* Destroy the tree */
 extern void bt_write(BT *, FILE *);                    /* Print the tree to FILE* f */
 extern void bt_write_pretty(BT *, FILE *);             /* Print the tree but prettier */
 extern char *bt_get_key_addr(BT *, const char *key);   /* Get the address of the key that matches key or NULL */
-
-#ifndef BT_H_
-#define BT_H_
 
 typedef enum BT_Dir {
         BT_LEFT,
