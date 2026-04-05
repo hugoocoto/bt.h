@@ -44,7 +44,7 @@ bt_pretty_print_test_r(BT *tree, int indent, char orientation, BT **path, size_t
         if (indent)
                 printf("%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
         /* In these tests, value is always an integer encoded as (void *). */
-        printf("%*s%p -> %d\n", indent_inc, "", tree, (int) (intptr_t) tree->value);
+        printf("%*s%p -> %d\n", indent_inc, "", (void *) tree, (int) (intptr_t) tree->value);
 
         if (tree->right)
                 bt_pretty_print_test_r(tree->right, indent + indent_inc, '\\', path, depth + 1, max_depth);
