@@ -71,7 +71,7 @@ typedef struct BT BT;
 typedef void (*Value_Delete_Callback)(void *);
 
 /* CRUD Data structure (Create, Read, Update and Delete) */
-extern void bt_add(BT *, const char *key, void *value); /* Add or remplace a value with a given a key */
+extern void bt_add(BT *, const char *key, void *value); /* Add or replace a value with a given a key */
 extern void *bt_get(BT *, const char *key);             /* Get a value with a given a key, or NULL */
 extern void bt_del(BT *, const char *key);              /* Delete a value with a given key */
 extern void bt_destroy(BT *);                           /* Destroy the tree */
@@ -397,14 +397,21 @@ bt_del(BT *tree, const char *key)
         if (!node) return;
 
         BT *to_remove = node;
-        char *removed_key = node->key;
-        void *removed_value = node->value;
+        char *removed_key;
+        void *removed_value;
 
         if (node->left && node->right) {
                 BT *successor = bt_node_min(node->right);
+                removed_key = node->key;
+                removed_value = node->value;
                 node->key = successor->key;
                 node->value = successor->value;
                 to_remove = successor;
+                to_remove->key = NULL;
+                to_remove->value = NULL;
+        } else {
+                removed_key = to_remove->key;
+                removed_value = to_remove->value;
         }
 
         BT *child = to_remove->left ? to_remove->left : to_remove->right;
