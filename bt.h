@@ -41,7 +41,6 @@
  * #define BT_COMPARE strcmp
  * #define BT_STRDUP strdup
  * #define BT_CALLOC calloc
- * #define BT_FPRINTF fprintf
  *
  * The defines above have the default values, the new functions have to had the
  * same signature.
@@ -68,17 +67,13 @@ extern "C" {
 #ifndef BT_H_
 #define BT_H_
 
-#include <stdio.h>
-
 typedef struct BT BT;
 typedef void (*Value_Delete_Callback)(void *);
 
 /* CRUnD Data structure (Create, Read, Update but not Delete) */
-extern int bt_add(BT *, const char *key, void *value); /* Add or remplace a value with a given a key */
+extern void bt_add(BT *, const char *key, void *value); /* Add or remplace a value with a given a key */
 extern void *bt_get(BT *, const char *key);            /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                          /* Destroy the tree */
-extern void bt_write(BT *, FILE *);                    /* Print the tree to FILE* f */
-extern void bt_write_pretty(BT *, FILE *);             /* Print the tree but prettier */
 extern char *bt_get_key_addr(BT *, const char *key);   /* Get the address of the key that matches key or NULL */
 
 typedef enum BT_Dir {
@@ -124,10 +119,6 @@ struct BT {
 #define BT_CALLOC calloc
 #endif
 
-#ifndef BT_FPRINTF
-#define BT_FPRINTF fprintf
-#endif
-
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -171,30 +162,36 @@ node_set(BT *node, const char *key, void *value, BT *parent)
         node->left = node->right = 0;
 }
 
-int
+void
 bt_add(BT *tree, const char *key, void *value)
 {
         if (!tree->key) {
                 node_set(tree, key, value, NULL);
-                return 0;
+                return;
         }
 
         BT *node = tree;
         for (;;) {
                 if (node->key == 0) {
                         node_set(node, key, value, node->parent);
-                        return 0;
+                        return;
                 }
 
                 int cmp = BT_COMPARE(node->key, key);
 
                 if (cmp > 0) {
-                        if (!node->left) node->left = (BT *) BT_CALLOC(1, sizeof(BT));
+                        if (!node->left) {
+                                node->left = (BT *) BT_CALLOC(1, sizeof(BT));
+                                node->left->parent = node;
+                        }
                         node = node->left;
                 }
 
                 if (cmp < 0) {
-                        if (!node->right) node->right = (BT *) BT_CALLOC(1, sizeof(BT));
+                        if (!node->right) {
+                                node->right = (BT *) BT_CALLOC(1, sizeof(BT));
+                                node->right->parent = node;
+                        }
                         node = node->right;
                 }
 
@@ -203,7 +200,7 @@ bt_add(BT *tree, const char *key, void *value)
                         BT_VALUE_DELETE(node->value);
 /*                   */ #endif
                         node->value = value;
-                        return 0;
+                        return;
                 }
         }
 }
@@ -253,49 +250,12 @@ bt_destroy(BT *node)
         BT_VALUE_DELETE(node->value);
 /*   */ #endif
         if (node->key) free(node->key);
-}
-
-void
-bt_write_pretty(BT *tree, FILE *f)
-{
-        const int indent_inc = 8;
-        static int indent = 0;
-        static char orientation = '|';
-        char p = orientation;
-        if (!tree) return;
-        if (tree->left) {
-                indent += indent_inc;
-                orientation = '/';
-                bt_write_pretty(tree->left, f);
-                indent -= indent_inc;
-                orientation = p;
-        }
-        if (indent)
-                BT_FPRINTF(f, "%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
-        BT_FPRINTF(f, "\033[%d;%dm%*s\033[0m\n",
-                   (tree->color == BT_C_BLACK) ? 47 : 41,
-                   (tree->color == BT_C_BLACK) ? 30 : 37,
-                   indent_inc, tree->key);
-        if (tree->right) {
-                indent += indent_inc;
-                orientation = '\\';
-                bt_write_pretty(tree->right, f);
-                indent -= indent_inc;
-                orientation = p;
-        }
-}
-
-void
-bt_write(BT *tree, FILE *f)
-{
-        if (!tree) return;
-        if (tree->left) {
-                bt_write(tree->left, f);
-        }
-        BT_FPRINTF(f, "%s\n", tree->key);
-        if (tree->right) {
-                bt_write(tree->right, f);
-        }
+        node->key = NULL;
+        node->value = NULL;
+        node->parent = NULL;
+        node->left = NULL;
+        node->right = NULL;
+        node->color = BT_C_NONE;
 }
 
 #endif // !BT_IMPLEMENTATION
