@@ -326,8 +326,6 @@ bt_insert_fixup(BT *node)
 
         while (node && node->parent) node = node->parent;
         if (node && node->key) node->color = BT_C_BLACK;
-        else if (node && node->left && node->left->key) node->left->color = BT_C_BLACK;
-        else if (node && node->right && node->right->key) node->right->color = BT_C_BLACK;
 }
 
 static BT *

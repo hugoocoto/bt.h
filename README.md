@@ -1,4 +1,4 @@
-# Red-Black Tree (insert balancing)
+# Red-Black Tree (insertion only)
 
 Insertion now performs simple functional red-black balancing.
 
