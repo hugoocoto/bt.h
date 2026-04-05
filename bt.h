@@ -70,9 +70,10 @@ extern "C" {
 typedef struct BT BT;
 typedef void (*Value_Delete_Callback)(void *);
 
-/* CRUnD Data structure (Create, Read, Update but not Delete) */
+/* CRUD Data structure (Create, Read, Update and Delete) */
 extern void bt_add(BT *, const char *key, void *value); /* Add or remplace a value with a given a key */
 extern void *bt_get(BT *, const char *key);             /* Get a value with a given a key, or NULL */
+extern void bt_del(BT *, const char *key);              /* Delete a value with a given key */
 extern void bt_destroy(BT *);                           /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);    /* Get the address of the key that matches key or NULL */
 extern BT *bt_iter(BT *);                               /* In-order iterator using local static state; tree starts/restarts iteration, NULL advances */
@@ -357,11 +358,86 @@ bt_node_get(BT *tree, const char *key)
         }
 }
 
+static void
+bt_release_pair(char *key, void *value)
+{
+        (void) value;
+/*   */ #ifdef BT_VALUE_DELETE
+        BT_VALUE_DELETE(value);
+/*   */ #endif
+        if (key) free(key);
+}
+
+static void
+bt_release_entry(BT *node)
+{
+        bt_release_pair(node->key, node->value);
+        node->key = NULL;
+        node->value = NULL;
+}
+
+static BT *
+bt_node_min(BT *node)
+{
+        while (node && node->left) node = node->left;
+        return node;
+}
+
 char *
 bt_get_key_addr(BT *tree, const char *key)
 {
         BT *node = bt_node_get(tree, key);
         return node ? node->key : NULL;
+}
+
+void
+bt_del(BT *tree, const char *key)
+{
+        BT *node = bt_node_get(tree, key);
+        if (!node) return;
+
+        BT *to_remove = node;
+        char *removed_key = node->key;
+        void *removed_value = node->value;
+
+        if (node->left && node->right) {
+                BT *successor = bt_node_min(node->right);
+                node->key = successor->key;
+                node->value = successor->value;
+                to_remove = successor;
+        }
+
+        BT *child = to_remove->left ? to_remove->left : to_remove->right;
+
+        if (to_remove->parent) {
+                if (to_remove->parent->left == to_remove) to_remove->parent->left = child;
+                else to_remove->parent->right = child;
+                if (child) child->parent = to_remove->parent;
+                bt_release_pair(removed_key, removed_value);
+                free(to_remove);
+                return;
+        }
+
+        bt_release_pair(removed_key, removed_value);
+        if (!child) {
+                tree->key = NULL;
+                tree->value = NULL;
+                tree->parent = NULL;
+                tree->left = NULL;
+                tree->right = NULL;
+                tree->color = BT_C_NONE;
+                return;
+        }
+
+        tree->key = child->key;
+        tree->value = child->value;
+        tree->color = child->color;
+        tree->left = child->left;
+        tree->right = child->right;
+        if (tree->left) tree->left->parent = tree;
+        if (tree->right) tree->right->parent = tree;
+        tree->parent = NULL;
+        free(child);
 }
 
 
@@ -418,12 +494,7 @@ bt_destroy(BT *node)
                 bt_destroy(node->right);
                 free(node->right);
         }
-/*   */ #ifdef BT_VALUE_DELETE
-        BT_VALUE_DELETE(node->value);
-/*   */ #endif
-        if (node->key) free(node->key);
-        node->key = NULL;
-        node->value = NULL;
+        bt_release_entry(node);
         node->parent = NULL;
         node->left = NULL;
         node->right = NULL;
