@@ -1,6 +1,7 @@
 # Red-Black Tree (insertion only)
 
 Insertion now performs simple functional red-black balancing.
+Delete operation is not implemented yet.
 
 ## Public API
 
