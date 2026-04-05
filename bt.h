@@ -276,7 +276,7 @@ bt_grandparent(BT *node)
 }
 
 static void
-bt_insert_fixup(BT *node)
+bt_insert_fixup(BT *tree, BT *node)
 {
         while (node && node->parent && node->parent->color == BT_C_RED) {
                 BT *parent = node->parent;
@@ -293,8 +293,8 @@ bt_insert_fixup(BT *node)
                                 continue;
                         }
                         if (node == parent->right) {
-                                bt_rotate_left(parent);
                                 node = parent;
+                                bt_rotate_left(node);
                                 parent = node->parent;
                                 grandparent = bt_grandparent(node);
                                 if (!parent || !grandparent) break;
@@ -312,8 +312,8 @@ bt_insert_fixup(BT *node)
                                 continue;
                         }
                         if (node == parent->left) {
-                                bt_rotate_right(parent);
                                 node = parent;
+                                bt_rotate_right(node);
                                 parent = node->parent;
                                 grandparent = bt_grandparent(node);
                                 if (!parent || !grandparent) break;
@@ -324,8 +324,7 @@ bt_insert_fixup(BT *node)
                 }
         }
 
-        while (node && node->parent) node = node->parent;
-        if (node && node->key) node->color = BT_C_BLACK;
+        tree->color = BT_C_BLACK;
 }
 
 static BT *
@@ -376,7 +375,7 @@ bt_add(BT *tree, const char *key, void *value)
         }
 
         BT *inserted = bt_add_new_node(tree, key, value);
-        if (inserted) bt_insert_fixup(inserted);
+        if (inserted) bt_insert_fixup(tree, inserted);
 }
 
 static BT *
