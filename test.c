@@ -63,6 +63,23 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "dddd") == (void *) 15L);
         assert(bt_get(&tree, "invalid") == NULL);
         assert(bt_get(&tree, "none") == NULL);
+
+        /* Delete test */
+        bt_del(&tree, "none");
+        bt_del(&tree, "bb");
+        assert(bt_get(&tree, "bb") == NULL);
+        assert(bt_get(&tree, "") == (void *) 11L);
+        assert(bt_get(&tree, "a") == (void *) 12L);
+        assert(bt_get(&tree, "ccc") == (void *) 14L);
+        assert(bt_get(&tree, "dddd") == (void *) 15L);
+        bt_del(&tree, "");
+        bt_del(&tree, "a");
+        bt_del(&tree, "ccc");
+        bt_del(&tree, "dddd");
+        assert(bt_get(&tree, "") == NULL);
+        assert(bt_get(&tree, "a") == NULL);
+        assert(bt_get(&tree, "ccc") == NULL);
+        assert(bt_get(&tree, "dddd") == NULL);
         bt_destroy(&tree);
 
         /* balance test; tester have to eval the result based on the
