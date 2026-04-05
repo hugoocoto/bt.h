@@ -75,6 +75,7 @@ extern void bt_add(BT *, const char *key, void *value); /* Add or remplace a val
 extern void *bt_get(BT *, const char *key);            /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                          /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);   /* Get the address of the key that matches key or NULL */
+extern BT *bt_iter(BT *);                              /* In-order iterator using local static state; tree starts/restarts iteration, NULL advances */
 
 typedef enum BT_Dir {
         BT_LEFT,
@@ -232,6 +233,40 @@ bt_get(BT *tree, const char *key)
 {
         BT *node = bt_node_get(tree, key);
         return node == NULL ? NULL : node->value;
+}
+
+static BT *
+bt_iter_rec(BT *root, BT *current, int next_mode)
+{
+        if (!next_mode) {
+                if (!root || !root->key) return NULL;
+                if (!root->left) return root;
+                return bt_iter_rec(root->left, NULL, 0);
+        }
+
+        if (!root || !root->key || !current || !current->key) return NULL;
+        int cmp = BT_COMPARE(root->key, current->key);
+        if (cmp > 0) {
+                BT *left_candidate = bt_iter_rec(root->left, current, 1);
+                return left_candidate ? left_candidate : root;
+        }
+        return bt_iter_rec(root->right, current, 1);
+}
+
+BT *
+bt_iter(BT *tree)
+{
+        static BT *iter_root = NULL;
+        static BT *iter_current = NULL;
+
+        if (tree) {
+                iter_root = tree;
+                iter_current = bt_iter_rec(tree, NULL, 0);
+                return iter_current;
+        }
+        if (!iter_root || !iter_current) return NULL;
+        iter_current = bt_iter_rec(iter_root, iter_current, 1);
+        return iter_current;
 }
 
 void

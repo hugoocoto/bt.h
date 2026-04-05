@@ -8,6 +8,7 @@ extern void bt_add(BT *, const char *key, void *value);  /* Add or replace a val
 extern void *bt_get(BT *, const char *key);              /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                            /* Destroy the tree */
 extern char *bt_get_key_addr(BT *tree, const char *key); /* Get the address of the key that matches key or NULL */
+extern BT *bt_iter(BT *);                                /* Iterate in-order; pass tree to start, NULL for next */
 
 int
 main(int argc, char *argv[])
@@ -93,6 +94,50 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "z") == (void *) 42L);
         assert(strcmp(bt_get_key_addr(&tree, "z"), "z") == 0);
         bt_destroy(&tree);
+
+        /* Iterator test (in-order: smallest to largest) */
+        bt_add(&tree, "d", (void *) 1L);
+        bt_add(&tree, "b", (void *) 1L);
+        bt_add(&tree, "f", (void *) 1L);
+        bt_add(&tree, "a", (void *) 1L);
+        bt_add(&tree, "c", (void *) 1L);
+        bt_add(&tree, "e", (void *) 1L);
+        bt_add(&tree, "g", (void *) 1L);
+
+        BT *iter = bt_iter(&tree);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "a") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "b") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "c") == 0);
+        iter = bt_iter(&tree);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "a") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "b") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "c") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "d") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "e") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "f") == 0);
+        iter = bt_iter(NULL);
+        assert(iter != NULL);
+        assert(strcmp(iter->key, "g") == 0);
+        assert(bt_iter(NULL) == NULL);
+        assert(bt_iter(NULL) == NULL);
+        bt_destroy(&tree);
+        assert(bt_iter(NULL) == NULL);
 
         return 0;
 }
