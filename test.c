@@ -12,6 +12,8 @@ extern void bt_destroy(BT *);                            /* Destroy the tree */
 extern char *bt_get_key_addr(BT *tree, const char *key); /* Get the address of the key that matches key or NULL */
 extern BT *bt_iter(BT *);                                /* Iterate in-order; pass tree to start, NULL for next */
 
+enum { BT_TEST_MAX_PRETTY_DEPTH = 1024 };
+
 static int
 node_in_path(BT *node, BT **path, size_t depth)
 {
@@ -41,6 +43,7 @@ bt_pretty_print_test_r(BT *tree, int indent, char orientation, BT **path, size_t
 
         if (indent)
                 printf("%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
+        /* In these tests, value is always an integer encoded as (void *). */
         printf("%*s%p -> %d\n", indent_inc, "", (void *) tree, (int) (intptr_t) tree->value);
 
         if (tree->right)
@@ -50,8 +53,8 @@ bt_pretty_print_test_r(BT *tree, int indent, char orientation, BT **path, size_t
 static void
 bt_pretty_print_test(BT *tree)
 {
-        BT *path[1024] = { 0 };
-        bt_pretty_print_test_r(tree, 0, ' ', path, 0, 1024);
+        BT *path[BT_TEST_MAX_PRETTY_DEPTH] = { 0 };
+        bt_pretty_print_test_r(tree, 0, ' ', path, 0, BT_TEST_MAX_PRETTY_DEPTH);
 }
 
 int
