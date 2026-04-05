@@ -302,6 +302,7 @@ bt_insert_fixup(BT *tree, BT *node)
                         parent->color = BT_C_BLACK;
                         grandparent->color = BT_C_RED;
                         bt_rotate_right(grandparent);
+                        continue;
                 } else {
                         BT *uncle = grandparent->left;
                         if (bt_is_red(uncle)) {
@@ -321,6 +322,7 @@ bt_insert_fixup(BT *tree, BT *node)
                         parent->color = BT_C_BLACK;
                         grandparent->color = BT_C_RED;
                         bt_rotate_left(grandparent);
+                        continue;
                 }
         }
 
