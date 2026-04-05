@@ -163,6 +163,148 @@ node_set(BT *node, const char *key, void *value, BT *parent)
         node->left = node->right = 0;
 }
 
+static int
+bt_height(BT *node)
+{
+        if (!node || !node->key) return 0;
+        int lh = bt_height(node->left);
+        int rh = bt_height(node->right);
+        return (lh > rh ? lh : rh) + 1;
+}
+
+static int
+bt_balance_factor(BT *node)
+{
+        if (!node || !node->key) return 0;
+        return bt_height(node->left) - bt_height(node->right);
+}
+
+static BT *
+bt_rotate_left(BT *node)
+{
+        BT *new_root = node->right;
+        assert(new_root);
+
+        if (node->parent) {
+                BT *parent = node->parent;
+                BT *moved = new_root->left;
+
+                new_root->parent = parent;
+                if (parent->left == node) parent->left = new_root;
+                else parent->right = new_root;
+
+                new_root->left = node;
+                node->parent = new_root;
+                node->right = moved;
+                if (moved) moved->parent = node;
+                return new_root;
+        }
+
+        /* In-place rotation when node is the root object passed by the user. */
+        BT *a = node->left;
+        BT *b = new_root->left;
+        BT *c = new_root->right;
+
+        char *node_key = node->key;
+        void *node_value = node->value;
+        BT_Color node_color = node->color;
+
+        node->key = new_root->key;
+        node->value = new_root->value;
+        node->color = new_root->color;
+
+        new_root->key = node_key;
+        new_root->value = node_value;
+        new_root->color = node_color;
+
+        new_root->left = a;
+        if (a) a->parent = new_root;
+        new_root->right = b;
+        if (b) b->parent = new_root;
+        new_root->parent = node;
+
+        node->left = new_root;
+        node->right = c;
+        if (c) c->parent = node;
+        return node;
+}
+
+static BT *
+bt_rotate_right(BT *node)
+{
+        BT *new_root = node->left;
+        assert(new_root);
+
+        if (node->parent) {
+                BT *parent = node->parent;
+                BT *moved = new_root->right;
+
+                new_root->parent = parent;
+                if (parent->left == node) parent->left = new_root;
+                else parent->right = new_root;
+
+                new_root->right = node;
+                node->parent = new_root;
+                node->left = moved;
+                if (moved) moved->parent = node;
+                return new_root;
+        }
+
+        /* In-place rotation when node is the root object passed by the user. */
+        BT *a = new_root->left;
+        BT *b = new_root->right;
+        BT *c = node->right;
+
+        char *node_key = node->key;
+        void *node_value = node->value;
+        BT_Color node_color = node->color;
+
+        node->key = new_root->key;
+        node->value = new_root->value;
+        node->color = new_root->color;
+
+        new_root->key = node_key;
+        new_root->value = node_value;
+        new_root->color = node_color;
+
+        new_root->left = b;
+        if (b) b->parent = new_root;
+        new_root->right = c;
+        if (c) c->parent = new_root;
+        new_root->parent = node;
+
+        node->left = a;
+        if (a) a->parent = node;
+        node->right = new_root;
+        return node;
+}
+
+static BT *
+bt_rebalance_node(BT *node)
+{
+        if (!node || !node->key) return node;
+
+        int bf = bt_balance_factor(node);
+        if (bf > 1) {
+                if (bt_balance_factor(node->left) < 0) bt_rotate_left(node->left);
+                return bt_rotate_right(node);
+        }
+        if (bf < -1) {
+                if (bt_balance_factor(node->right) > 0) bt_rotate_right(node->right);
+                return bt_rotate_left(node);
+        }
+        return node;
+}
+
+static void
+bt_rebalance_upwards(BT *node)
+{
+        while (node) {
+                node = bt_rebalance_node(node);
+                node = node->parent;
+        }
+}
+
 void
 bt_add(BT *tree, const char *key, void *value)
 {
@@ -175,6 +317,7 @@ bt_add(BT *tree, const char *key, void *value)
         for (;;) {
                 if (node->key == 0) {
                         node_set(node, key, value, node->parent);
+                        bt_rebalance_upwards(node);
                         return;
                 }
 
