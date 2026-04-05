@@ -1,6 +1,8 @@
 #include "bt.h"
 
 #include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,6 +11,30 @@ extern void *bt_get(BT *, const char *key);              /* Get a value with a g
 extern void bt_destroy(BT *);                            /* Destroy the tree */
 extern char *bt_get_key_addr(BT *tree, const char *key); /* Get the address of the key that matches key or NULL */
 extern BT *bt_iter(BT *);                                /* Iterate in-order; pass tree to start, NULL for next */
+
+static void
+bt_pretty_print_test_r(BT *tree, int indent, char orientation)
+{
+        const int indent_inc = 8;
+
+        if (!tree || !tree->key) return;
+        if (tree->left)
+                bt_pretty_print_test_r(tree->left, indent + indent_inc, '/');
+
+        if (indent)
+                printf("%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
+        /* In these tests, value is always an integer encoded as (void *). */
+        printf("%*s%p -> %d\n", indent_inc, "", (void *) tree, (int) (intptr_t) tree->value);
+
+        if (tree->right)
+                bt_pretty_print_test_r(tree->right, indent + indent_inc, '\\');
+}
+
+static void
+bt_pretty_print_test(BT *tree)
+{
+        bt_pretty_print_test_r(tree, 0, ' ');
+}
 
 int
 main(int argc, char *argv[])
@@ -87,6 +113,7 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "n") == (void *) 1L);
         assert(bt_get(&tree, "o") == (void *) 1L);
         assert(bt_get(&tree, "p") == NULL);
+        bt_pretty_print_test(&tree);
         bt_destroy(&tree);
 
         /* Reuse after destroy */
