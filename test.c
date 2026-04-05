@@ -6,34 +6,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern void bt_add(BT *, const char *key, void *value);  /* Add or replace a value with a given a key */
-extern void *bt_get(BT *, const char *key);              /* Get a value with a given a key, or NULL */
-extern void bt_destroy(BT *);                            /* Destroy the tree */
-extern char *bt_get_key_addr(BT *tree, const char *key); /* Get the address of the key that matches key or NULL */
-extern BT *bt_iter(BT *);                                /* Iterate in-order; pass tree to start, NULL for next */
-
-static void
-bt_pretty_print_test_r(BT *tree, int indent, char orientation)
-{
-        const int indent_inc = 8;
-
-        if (!tree || !tree->key) return;
-        if (tree->left)
-                bt_pretty_print_test_r(tree->left, indent + indent_inc, '/');
-
-        if (indent)
-                printf("%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
-        /* In these tests, value is always an integer encoded as (void *). */
-        printf("%*s%p -> %d\n", indent_inc, "", (void *) tree, (int) (intptr_t) tree->value);
-
-        if (tree->right)
-                bt_pretty_print_test_r(tree->right, indent + indent_inc, '\\');
-}
-
 static void
 bt_pretty_print_test(BT *tree)
 {
-        bt_pretty_print_test_r(tree, 0, ' ');
+        if (!tree || !tree->key) return;
+        if (tree->left) {
+                bt_pretty_print_test(tree->left);
+        }
+
+        printf("%p -> %d\n", (void *) tree, (int) (intptr_t) tree->value);
+
+        if (tree->right) {
+                bt_pretty_print_test(tree->right);
+        }
 }
 
 int
