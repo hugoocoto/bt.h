@@ -15,7 +15,7 @@
  * +---------------------------------------------------+
  * */
 
-/* unBalanced Tree -- uncolored red-Black Tree */
+/* red-Black Tree */
 
 /* To initialize a BTree, you have to zero initialize a BT
  *
@@ -159,25 +159,181 @@ node_set(BT *node, const char *key, void *value, BT *parent)
         node->parent = parent;
         node->key = BT_STRDUP(key);
         node->value = value;
-        node->color = BT_C_BLACK;
+        node->color = BT_C_RED;
         node->left = node->right = 0;
 }
 
-void
-bt_add(BT *tree, const char *key, void *value)
+static BT *
+bt_rotate_left(BT *node)
 {
-        if (!tree->key) {
-                node_set(tree, key, value, NULL);
-                return;
+        BT *new_root = node->right;
+        assert(new_root);
+
+        if (node->parent) {
+                BT *parent = node->parent;
+                BT *moved = new_root->left;
+
+                new_root->parent = parent;
+                if (parent->left == node) parent->left = new_root;
+                else parent->right = new_root;
+
+                new_root->left = node;
+                node->parent = new_root;
+                node->right = moved;
+                if (moved) moved->parent = node;
+                return new_root;
         }
 
+        /* In-place rotation when node is the root object passed by the user. */
+        BT *a = node->left;
+        BT *b = new_root->left;
+        BT *c = new_root->right;
+
+        char *node_key = node->key;
+        void *node_value = node->value;
+        BT_Color node_color = node->color;
+
+        node->key = new_root->key;
+        node->value = new_root->value;
+        node->color = new_root->color;
+
+        new_root->key = node_key;
+        new_root->value = node_value;
+        new_root->color = node_color;
+
+        new_root->left = a;
+        if (a) a->parent = new_root;
+        new_root->right = b;
+        if (b) b->parent = new_root;
+        new_root->parent = node;
+
+        node->left = new_root;
+        node->right = c;
+        if (c) c->parent = node;
+        return node;
+}
+
+static BT *
+bt_rotate_right(BT *node)
+{
+        BT *new_root = node->left;
+        assert(new_root);
+
+        if (node->parent) {
+                BT *parent = node->parent;
+                BT *moved = new_root->right;
+
+                new_root->parent = parent;
+                if (parent->left == node) parent->left = new_root;
+                else parent->right = new_root;
+
+                new_root->right = node;
+                node->parent = new_root;
+                node->left = moved;
+                if (moved) moved->parent = node;
+                return new_root;
+        }
+
+        /* In-place rotation when node is the root object passed by the user. */
+        BT *a = new_root->left;
+        BT *b = new_root->right;
+        BT *c = node->right;
+
+        char *node_key = node->key;
+        void *node_value = node->value;
+        BT_Color node_color = node->color;
+
+        node->key = new_root->key;
+        node->value = new_root->value;
+        node->color = new_root->color;
+
+        new_root->key = node_key;
+        new_root->value = node_value;
+        new_root->color = node_color;
+
+        new_root->left = b;
+        if (b) b->parent = new_root;
+        new_root->right = c;
+        if (c) c->parent = new_root;
+        new_root->parent = node;
+
+        node->left = a;
+        if (a) a->parent = node;
+        node->right = new_root;
+        return node;
+}
+
+static int
+bt_is_red(BT *node)
+{
+        return node && node->key && node->color == BT_C_RED;
+}
+
+static BT *
+bt_grandparent(BT *node)
+{
+        return (node && node->parent) ? node->parent->parent : NULL;
+}
+
+static void
+bt_insert_fixup(BT *tree, BT *node)
+{
+        while (node && node->parent && node->parent->color == BT_C_RED) {
+                BT *parent = node->parent;
+                BT *grandparent = bt_grandparent(node);
+                if (!grandparent) break;
+
+                if (parent == grandparent->left) {
+                        BT *uncle = grandparent->right;
+                        if (bt_is_red(uncle)) {
+                                parent->color = BT_C_BLACK;
+                                uncle->color = BT_C_BLACK;
+                                grandparent->color = BT_C_RED;
+                                node = grandparent;
+                                continue;
+                        }
+                        if (node == parent->right) {
+                                node = parent;
+                                bt_rotate_left(node);
+                                parent = node->parent;
+                                grandparent = bt_grandparent(node);
+                                if (!parent || !grandparent) break;
+                        }
+                        parent->color = BT_C_BLACK;
+                        grandparent->color = BT_C_RED;
+                        bt_rotate_right(grandparent);
+                        continue;
+                } else {
+                        BT *uncle = grandparent->left;
+                        if (bt_is_red(uncle)) {
+                                parent->color = BT_C_BLACK;
+                                uncle->color = BT_C_BLACK;
+                                grandparent->color = BT_C_RED;
+                                node = grandparent;
+                                continue;
+                        }
+                        if (node == parent->left) {
+                                node = parent;
+                                bt_rotate_right(node);
+                                parent = node->parent;
+                                grandparent = bt_grandparent(node);
+                                if (!parent || !grandparent) break;
+                        }
+                        parent->color = BT_C_BLACK;
+                        grandparent->color = BT_C_RED;
+                        bt_rotate_left(grandparent);
+                        continue;
+                }
+        }
+
+        tree->color = BT_C_BLACK;
+}
+
+static BT *
+bt_add_new_node(BT *tree, const char *key, void *value)
+{
         BT *node = tree;
         for (;;) {
-                if (node->key == 0) {
-                        node_set(node, key, value, node->parent);
-                        return;
-                }
-
                 int cmp = BT_COMPARE(node->key, key);
 
                 if (cmp > 0) {
@@ -201,9 +357,27 @@ bt_add(BT *tree, const char *key, void *value)
                         BT_VALUE_DELETE(node->value);
 /*                   */ #endif
                         node->value = value;
-                        return;
+                        return NULL;
+                }
+
+                if (node->key == 0) {
+                        node_set(node, key, value, node->parent);
+                        return node;
                 }
         }
+}
+
+void
+bt_add(BT *tree, const char *key, void *value)
+{
+        if (!tree->key) {
+                node_set(tree, key, value, NULL);
+                tree->color = BT_C_BLACK;
+                return;
+        }
+
+        BT *inserted = bt_add_new_node(tree, key, value);
+        if (inserted) bt_insert_fixup(tree, inserted);
 }
 
 static BT *
