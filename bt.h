@@ -299,7 +299,7 @@ bt_insert_fixup(BT *tree, BT *node)
                                 grandparent = bt_grandparent(node);
                                 if (!parent || !grandparent) {
                                         node = tree;
-                                        break;
+                                        continue;
                                 }
                         }
                         parent->color = BT_C_BLACK;
@@ -322,7 +322,7 @@ bt_insert_fixup(BT *tree, BT *node)
                                 grandparent = bt_grandparent(node);
                                 if (!parent || !grandparent) {
                                         node = tree;
-                                        break;
+                                        continue;
                                 }
                         }
                         parent->color = BT_C_BLACK;
