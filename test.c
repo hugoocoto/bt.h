@@ -8,6 +8,7 @@ extern void bt_add(BT *, const char *key, void *value);  /* Add or replace a val
 extern void *bt_get(BT *, const char *key);              /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                            /* Destroy the tree */
 extern char *bt_get_key_addr(BT *tree, const char *key); /* Get the address of the key that matches key or NULL */
+extern BT *bt_iter(BT *);                                /* Iterate in-order; pass tree to start, NULL for next */
 
 int
 main(int argc, char *argv[])
@@ -92,6 +93,26 @@ main(int argc, char *argv[])
         bt_add(&tree, "z", (void *) 42L);
         assert(bt_get(&tree, "z") == (void *) 42L);
         assert(strcmp(bt_get_key_addr(&tree, "z"), "z") == 0);
+        bt_destroy(&tree);
+
+        /* Iterator test (in-order: menor a mayor) */
+        bt_add(&tree, "d", (void *) 1L);
+        bt_add(&tree, "b", (void *) 1L);
+        bt_add(&tree, "f", (void *) 1L);
+        bt_add(&tree, "a", (void *) 1L);
+        bt_add(&tree, "c", (void *) 1L);
+        bt_add(&tree, "e", (void *) 1L);
+        bt_add(&tree, "g", (void *) 1L);
+
+        assert(strcmp(bt_iter(&tree)->key, "a") == 0);
+        assert(strcmp(bt_iter(NULL)->key, "b") == 0);
+        assert(strcmp(bt_iter(NULL)->key, "c") == 0);
+        assert(strcmp(bt_iter(NULL)->key, "d") == 0);
+        assert(strcmp(bt_iter(NULL)->key, "e") == 0);
+        assert(strcmp(bt_iter(NULL)->key, "f") == 0);
+        assert(strcmp(bt_iter(NULL)->key, "g") == 0);
+        assert(bt_iter(NULL) == NULL);
+        assert(bt_iter(NULL) == NULL);
         bt_destroy(&tree);
 
         return 0;
