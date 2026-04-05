@@ -1,6 +1,6 @@
-# Height-Balanced Binary Search Tree (insert balancing)
+# Red-Black Tree (insert balancing)
 
-Insertion now performs simple functional balancing.
+Insertion now performs simple functional red-black balancing.
 
 ## Public API
 
