@@ -99,6 +99,8 @@ main(int argc, char *argv[])
         bt_add(&tree, "m", (void *) 1L);
         bt_add(&tree, "n", (void *) 1L);
         bt_add(&tree, "o", (void *) 1L);
+        bt_add(&tree, "p", (void *) 1L);
+        bt_add(&tree, "s", (void *) 1L);
         assert(bt_get(&tree, "a") == (void *) 1L);
         assert(bt_get(&tree, "b") == (void *) 1L);
         assert(bt_get(&tree, "c") == (void *) 1L);
@@ -114,7 +116,9 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "m") == (void *) 1L);
         assert(bt_get(&tree, "n") == (void *) 1L);
         assert(bt_get(&tree, "o") == (void *) 1L);
-        assert(bt_get(&tree, "p") == NULL);
+        assert(bt_get(&tree, "p") == (void *) 1L);
+        assert(bt_get(&tree, "s") == (void *) 1L);
+        assert(bt_get(&tree, "q") == NULL);
         bt_pretty_print_test(&tree);
         bt_destroy(&tree);
 
