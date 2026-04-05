@@ -47,7 +47,6 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "invalid") == NULL);
         assert(bt_get(&tree, "none") == NULL);
         bt_destroy(&tree);
-        memset(&tree, 0, sizeof(tree));
 
         /* balance test; tester have to eval the result based on the
          * representation */

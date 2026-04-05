@@ -128,6 +128,10 @@ struct BT {
 #define BT_FPRINTF fprintf
 #endif
 
+#ifndef BT_MAX_PRETTY_DEPTH
+#define BT_MAX_PRETTY_DEPTH 1024
+#endif
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -295,13 +299,19 @@ bt_destroy(BT *node)
         BT_VALUE_DELETE(node->value);
 /*   */ #endif
         if (node->key) free(node->key);
+        node->key = NULL;
+        node->value = NULL;
+        node->parent = NULL;
+        node->left = NULL;
+        node->right = NULL;
+        node->color = BT_C_NONE;
 }
 
 void
 bt_write_pretty(BT *tree, FILE *f)
 {
-        BT *path[1024];
-        bt_write_pretty_r(tree, f, 0, '|', path, 0, 1024);
+        BT *path[BT_MAX_PRETTY_DEPTH];
+        bt_write_pretty_r(tree, f, 0, '|', path, 0, BT_MAX_PRETTY_DEPTH);
 }
 
 void
