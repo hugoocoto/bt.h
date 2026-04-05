@@ -1,11 +1,10 @@
 #include "bt.h"
 
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-extern void bt_add(BT *, const char *key, void *node);   /* Add or remplace a value with a given a key */
+extern void bt_add(BT *, const char *key, void *node);   /* Add or replace a value with a given a key */
 extern void *bt_get(BT *, const char *key);              /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                            /* Destroy the tree */
 extern char *bt_get_key_addr(BT *tree, const char *key); /* Get the address of the key that matches key or NULL */
@@ -65,7 +64,6 @@ main(int argc, char *argv[])
         bt_add(&tree, "m", (void *) 1L);
         bt_add(&tree, "n", (void *) 1L);
         bt_add(&tree, "o", (void *) 1L);
-        bt_write_pretty(&tree, stdout);
         bt_destroy(&tree);
 
         return 0;

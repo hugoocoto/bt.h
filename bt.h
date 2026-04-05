@@ -41,7 +41,6 @@
  * #define BT_COMPARE strcmp
  * #define BT_STRDUP strdup
  * #define BT_CALLOC calloc
- * #define BT_FPRINTF fprintf
  *
  * The defines above have the default values, the new functions have to had the
  * same signature.
@@ -68,8 +67,6 @@ extern "C" {
 #ifndef BT_H_
 #define BT_H_
 
-#include <stdio.h>
-
 typedef struct BT BT;
 typedef void (*Value_Delete_Callback)(void *);
 
@@ -77,8 +74,6 @@ typedef void (*Value_Delete_Callback)(void *);
 extern void bt_add(BT *, const char *key, void *value); /* Add or remplace a value with a given a key */
 extern void *bt_get(BT *, const char *key);            /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                          /* Destroy the tree */
-extern void bt_write(BT *, FILE *);                    /* Print the tree to FILE* f */
-extern void bt_write_pretty(BT *, FILE *);             /* Print the tree but prettier */
 extern char *bt_get_key_addr(BT *, const char *key);   /* Get the address of the key that matches key or NULL */
 
 typedef enum BT_Dir {
@@ -122,14 +117,6 @@ struct BT {
 
 #ifndef BT_CALLOC
 #define BT_CALLOC calloc
-#endif
-
-#ifndef BT_FPRINTF
-#define BT_FPRINTF fprintf
-#endif
-
-#ifndef BT_MAX_PRETTY_DEPTH
-#define BT_MAX_PRETTY_DEPTH 1024
 #endif
 
 #include <assert.h>
@@ -218,42 +205,6 @@ bt_add(BT *tree, const char *key, void *value)
         }
 }
 
-static int
-bt_node_in_path(BT *node, BT **path, size_t depth)
-{
-        for (size_t i = 0; i < depth; i++)
-                if (path[i] == node) return 1;
-        return 0;
-}
-
-static void
-bt_write_pretty_r(BT *tree, FILE *f, int indent, char orientation, BT **path, size_t depth, size_t max_depth)
-{
-        const int indent_inc = 8;
-        if (!tree || !tree->key) return;
-        if (bt_node_in_path(tree, path, depth)) {
-                BT_FPRINTF(f, "%*.*s[cycle]\n", indent + indent_inc, indent + indent_inc, "");
-                return;
-        }
-        if (depth >= max_depth) {
-                BT_FPRINTF(f, "%*.*s[depth-limit]\n", indent + indent_inc, indent + indent_inc, "");
-                return;
-        }
-        path[depth] = tree;
-        if (tree->left) {
-                bt_write_pretty_r(tree->left, f, indent + indent_inc, '/', path, depth + 1, max_depth);
-        }
-        if (indent)
-                BT_FPRINTF(f, "%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
-        BT_FPRINTF(f, "\033[%d;%dm%*s\033[0m\n",
-                   (tree->color == BT_C_BLACK) ? 47 : 41,
-                   (tree->color == BT_C_BLACK) ? 30 : 37,
-                   indent_inc, tree->key);
-        if (tree->right) {
-                bt_write_pretty_r(tree->right, f, indent + indent_inc, '\\', path, depth + 1, max_depth);
-        }
-}
-
 static BT *
 bt_node_get(BT *tree, const char *key)
 {
@@ -305,26 +256,6 @@ bt_destroy(BT *node)
         node->left = NULL;
         node->right = NULL;
         node->color = BT_C_NONE;
-}
-
-void
-bt_write_pretty(BT *tree, FILE *f)
-{
-        BT *path[BT_MAX_PRETTY_DEPTH];
-        bt_write_pretty_r(tree, f, 0, '|', path, 0, BT_MAX_PRETTY_DEPTH);
-}
-
-void
-bt_write(BT *tree, FILE *f)
-{
-        if (!tree) return;
-        if (tree->left) {
-                bt_write(tree->left, f);
-        }
-        BT_FPRINTF(f, "%s\n", tree->key);
-        if (tree->right) {
-                bt_write(tree->right, f);
-        }
 }
 
 #endif // !BT_IMPLEMENTATION
