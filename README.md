@@ -1,6 +1,6 @@
-# UnBalanced Red-Black Tree
+# Red-Black Tree (insert balancing)
 
-In the future it's going to be balanced.
+Insertion now performs simple functional balancing.
 
 ## Public API
 
@@ -21,4 +21,3 @@ Take a look to [./CONTRIBUTING.md](./CONTRIBUTING.md).
 ## Common issues
 - implicit declaration of function `strdup`: include 'bt.h' before string.h or
   define the `_XOPEN_SOURCE >= 500` or `_POSIX_C_SOURCE >= 200809L` macros.
-
