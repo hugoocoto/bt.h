@@ -74,7 +74,7 @@ typedef struct BT BT;
 typedef void (*Value_Delete_Callback)(void *);
 
 /* CRUnD Data structure (Create, Read, Update but not Delete) */
-extern int bt_add(BT *, const char *key, void *value); /* Add or remplace a value with a given a key */
+extern void bt_add(BT *, const char *key, void *value); /* Add or remplace a value with a given a key */
 extern void *bt_get(BT *, const char *key);            /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                          /* Destroy the tree */
 extern void bt_write(BT *, FILE *);                    /* Print the tree to FILE* f */
@@ -171,30 +171,36 @@ node_set(BT *node, const char *key, void *value, BT *parent)
         node->left = node->right = 0;
 }
 
-int
+void
 bt_add(BT *tree, const char *key, void *value)
 {
         if (!tree->key) {
                 node_set(tree, key, value, NULL);
-                return 0;
+                return;
         }
 
         BT *node = tree;
         for (;;) {
                 if (node->key == 0) {
                         node_set(node, key, value, node->parent);
-                        return 0;
+                        return;
                 }
 
                 int cmp = BT_COMPARE(node->key, key);
 
                 if (cmp > 0) {
-                        if (!node->left) node->left = (BT *) BT_CALLOC(1, sizeof(BT));
+                        if (!node->left) {
+                                node->left = (BT *) BT_CALLOC(1, sizeof(BT));
+                                node->left->parent = node;
+                        }
                         node = node->left;
                 }
 
                 if (cmp < 0) {
-                        if (!node->right) node->right = (BT *) BT_CALLOC(1, sizeof(BT));
+                        if (!node->right) {
+                                node->right = (BT *) BT_CALLOC(1, sizeof(BT));
+                                node->right->parent = node;
+                        }
                         node = node->right;
                 }
 
@@ -203,8 +209,44 @@ bt_add(BT *tree, const char *key, void *value)
                         BT_VALUE_DELETE(node->value);
 /*                   */ #endif
                         node->value = value;
-                        return 0;
+                        return;
                 }
+        }
+}
+
+static int
+bt_node_in_path(BT *node, BT **path, size_t depth)
+{
+        for (size_t i = 0; i < depth; i++)
+                if (path[i] == node) return 1;
+        return 0;
+}
+
+static void
+bt_write_pretty_r(BT *tree, FILE *f, int indent, char orientation, BT **path, size_t depth, size_t max_depth)
+{
+        const int indent_inc = 8;
+        if (!tree || !tree->key) return;
+        if (bt_node_in_path(tree, path, depth)) {
+                BT_FPRINTF(f, "%*.*s[cycle]\n", indent + indent_inc, indent + indent_inc, "");
+                return;
+        }
+        if (depth >= max_depth) {
+                BT_FPRINTF(f, "%*.*s[depth-limit]\n", indent + indent_inc, indent + indent_inc, "");
+                return;
+        }
+        path[depth] = tree;
+        if (tree->left) {
+                bt_write_pretty_r(tree->left, f, indent + indent_inc, '/', path, depth + 1, max_depth);
+        }
+        if (indent)
+                BT_FPRINTF(f, "%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
+        BT_FPRINTF(f, "\033[%d;%dm%*s\033[0m\n",
+                   (tree->color == BT_C_BLACK) ? 47 : 41,
+                   (tree->color == BT_C_BLACK) ? 30 : 37,
+                   indent_inc, tree->key);
+        if (tree->right) {
+                bt_write_pretty_r(tree->right, f, indent + indent_inc, '\\', path, depth + 1, max_depth);
         }
 }
 
@@ -258,31 +300,8 @@ bt_destroy(BT *node)
 void
 bt_write_pretty(BT *tree, FILE *f)
 {
-        const int indent_inc = 8;
-        static int indent = 0;
-        static char orientation = '|';
-        char p = orientation;
-        if (!tree) return;
-        if (tree->left) {
-                indent += indent_inc;
-                orientation = '/';
-                bt_write_pretty(tree->left, f);
-                indent -= indent_inc;
-                orientation = p;
-        }
-        if (indent)
-                BT_FPRINTF(f, "%*.*s%c%*.*s", indent - 1, indent - 1, "", orientation, 1, 1, "");
-        BT_FPRINTF(f, "\033[%d;%dm%*s\033[0m\n",
-                   (tree->color == BT_C_BLACK) ? 47 : 41,
-                   (tree->color == BT_C_BLACK) ? 30 : 37,
-                   indent_inc, tree->key);
-        if (tree->right) {
-                indent += indent_inc;
-                orientation = '\\';
-                bt_write_pretty(tree->right, f);
-                indent -= indent_inc;
-                orientation = p;
-        }
+        BT *path[1024];
+        bt_write_pretty_r(tree, f, 0, '|', path, 0, 1024);
 }
 
 void
