@@ -75,7 +75,7 @@ extern void bt_add(BT *, const char *key, void *value); /* Add or remplace a val
 extern void *bt_get(BT *, const char *key);            /* Get a value with a given a key, or NULL */
 extern void bt_destroy(BT *);                          /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);   /* Get the address of the key that matches key or NULL */
-extern BT *bt_iter(BT *);                              /* Iterate in-order; pass tree to start, NULL for next */
+extern BT *bt_iter(BT *);                              /* In-order iterator using static state; tree starts/restarts iteration, NULL advances, single active iteration only */
 
 typedef enum BT_Dir {
         BT_LEFT,
@@ -243,37 +243,50 @@ bt_iter_first(BT *node)
         return bt_iter_first(node->left);
 }
 
-static BT *
-bt_iter_next(BT *root, BT *current, BT *candidate)
+static BT *bt_iter_root_state = NULL;
+static BT *bt_iter_current_state = NULL;
+
+static int
+bt_subtree_contains(BT *root, BT *target)
 {
-        if (!root || !root->key || !current || !current->key) return candidate;
+        if (!root || !target) return 0;
+        if (root == target) return 1;
+        return bt_subtree_contains(root->left, target) || bt_subtree_contains(root->right, target);
+}
+
+static BT *
+bt_iter_next(BT *root, BT *current)
+{
+        if (!root || !root->key || !current || !current->key) return NULL;
         int cmp = BT_COMPARE(root->key, current->key);
         if (cmp > 0) {
-                candidate = root;
-                return bt_iter_next(root->left, current, candidate);
+                BT *left_candidate = bt_iter_next(root->left, current);
+                return left_candidate ? left_candidate : root;
         }
-        return bt_iter_next(root->right, current, candidate);
+        return bt_iter_next(root->right, current);
 }
 
 BT *
 bt_iter(BT *tree)
 {
-        static BT *iter_root = NULL;
-        static BT *iter_current = NULL;
         if (tree) {
-                iter_root = tree;
-                iter_current = bt_iter_first(tree);
-                return iter_current;
+                bt_iter_root_state = tree;
+                bt_iter_current_state = bt_iter_first(tree);
+                return bt_iter_current_state;
         }
-        if (!iter_root || !iter_current) return NULL;
-        iter_current = bt_iter_next(iter_root, iter_current, NULL);
-        return iter_current;
+        if (!bt_iter_root_state || !bt_iter_current_state) return NULL;
+        bt_iter_current_state = bt_iter_next(bt_iter_root_state, bt_iter_current_state);
+        return bt_iter_current_state;
 }
 
 void
 bt_destroy(BT *node)
 {
         if (!node) return;
+        if (bt_subtree_contains(node, bt_iter_root_state) || bt_subtree_contains(node, bt_iter_current_state)) {
+                bt_iter_root_state = NULL;
+                bt_iter_current_state = NULL;
+        }
         if (node->left) {
                 bt_destroy(node->left);
                 free(node->left);
