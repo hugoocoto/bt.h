@@ -201,7 +201,7 @@ main(int argc, char *argv[])
 
         {
                 const char *expected[] = { "a", "b", "c", "d", "e", "f", "g" };
-                const int expected_count = 7;
+                const int expected_count = (int) (sizeof(expected) / sizeof(expected[0]));
                 int expected_index = 0;
                 for_bt_each(iter, &tree) {
                         assert(expected_index < expected_count);
@@ -254,7 +254,7 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "g") == (void *) 7L);
         {
                 const char *expected[] = { "c", "d", "f", "g" };
-                const int expected_count = 4;
+                const int expected_count = (int) (sizeof(expected) / sizeof(expected[0]));
                 int expected_index = 0;
                 for_bt_each(iter, &tree) {
                         assert(expected_index < expected_count);
