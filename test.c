@@ -216,6 +216,7 @@ main(int argc, char *argv[])
         /* bt_del_if tests */
         assert(bt_del_if(&tree, del_if_always, NULL) == 0);
         assert(bt_get(&tree, "none") == NULL);
+        assert(bt_get(&tree, "any_key") == NULL);
 
         bt_add(&tree, "a", (void *) 1L);
         bt_add(&tree, "b", (void *) 2L);
