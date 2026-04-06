@@ -458,7 +458,7 @@ bt_del(BT *tree, const char *key)
 static size_t
 bt_del_if_rec(BT *tree, BT *node, BT_Del_If_Callback predicate, void *ctx)
 {
-        if (!node || !node->key) return 0;
+        if (!node) return 0;
 
         BT *left = node->left;
         BT *right = node->right;
@@ -467,7 +467,7 @@ bt_del_if_rec(BT *tree, BT *node, BT_Del_If_Callback predicate, void *ctx)
         removed += bt_del_if_rec(tree, left, predicate, ctx);
         removed += bt_del_if_rec(tree, right, predicate, ctx);
 
-        if (node->key && predicate(node->key, node->value, ctx)) {
+        if (predicate(node->key, node->value, ctx)) {
                 bt_del(tree, node->key);
                 removed++;
         }
@@ -480,7 +480,7 @@ bt_del_if(BT *tree, BT_Del_If_Callback predicate, void *ctx)
 {
         if (!tree || !tree->key || !predicate) return 0;
 
-        /* bt_iter uses static state; callers should restart iteration after mass deletes. */
+        /* bt_iter uses static state; callers should restart iteration after mass deletions. */
         return bt_del_if_rec(tree, tree, predicate, ctx);
 }
 
