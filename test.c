@@ -165,6 +165,18 @@ main(int argc, char *argv[])
         assert(strcmp(iter->key, "g") == 0);
         assert(bt_iter(NULL) == NULL);
         assert(bt_iter(NULL) == NULL);
+
+        {
+                const char *expected[] = { "a", "b", "c", "d", "e", "f", "g" };
+                int i = 0;
+                for_bt_each(iter, &tree) {
+                        assert(i < 7);
+                        assert(strcmp(iter->key, expected[i]) == 0);
+                        i++;
+                }
+                assert(i == 7);
+        }
+
         bt_destroy(&tree);
         assert(bt_iter(NULL) == NULL);
 

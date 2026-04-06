@@ -77,6 +77,7 @@ extern void bt_del(BT *, const char *key);              /* Delete a value with a
 extern void bt_destroy(BT *);                           /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);    /* Get the address of the key that matches key or NULL */
 extern BT *bt_iter(BT *);                               /* In-order iterator using local static state; tree starts/restarts iteration, NULL advances */
+#define for_bt_each(_it_, tree_ptr) for ((_it_) = bt_iter((tree_ptr)); (_it_); (_it_) = bt_iter(NULL))
 
 typedef enum BT_Color {
         BT_C_NONE,
