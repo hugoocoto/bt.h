@@ -72,7 +72,7 @@ extern "C" {
 typedef struct BT BT;
 typedef void (*Value_Delete_Callback)(void *);
 /* Predicate for bt_del_if: return non-zero to delete current node.
- * Callback must not mutate tree structure.
+ * Callback must not mutate tree structure; violating this causes undefined behavior.
  */
 typedef int (*BT_Del_If_Callback)(const char *key, void *value, void *ctx);
 
@@ -84,8 +84,8 @@ extern size_t bt_del_if(BT *, BT_Del_If_Callback, void *ctx); /* Delete values m
 extern void bt_destroy(BT *);                           /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);    /* Get the address of the key that matches key or NULL */
 extern BT *bt_iter(BT *);                               /* In-order iterator using local static state; tree starts/restarts iteration, NULL advances */
-/* Iteration uses static state; restart with bt_iter(tree) after structural changes
- * (e.g. bt_del_if or bt_del during traversal) before relying on bt_iter(NULL).
+/* Iteration uses static state; after structural changes restart with bt_iter(tree)
+ * before relying on bt_iter(NULL). Do not call bt_del_if while iterating.
  */
 #define for_bt_each(_it_, tree_ptr) for ((_it_) = bt_iter((tree_ptr)); (_it_); (_it_) = bt_iter(NULL))
 
@@ -483,8 +483,6 @@ bt_del_if(BT *tree, BT_Del_If_Callback predicate, void *ctx)
 {
         if (!tree || !predicate) return 0;
         if (!tree->key) return 0;
-
-        /* bt_iter uses static state; callers should restart iteration after mass deletions. */
         return bt_del_if_rec(tree, tree, predicate, ctx);
 }
 
