@@ -252,6 +252,17 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "c") == (void *) 5L);
         assert(bt_get(&tree, "e") == NULL);
         assert(bt_get(&tree, "g") == (void *) 7L);
+        {
+                const char *expected[] = { "c", "d", "f", "g" };
+                const int expected_count = 4;
+                int expected_index = 0;
+                for_bt_each(iter, &tree) {
+                        assert(expected_index < expected_count);
+                        assert(strcmp(iter->key, expected[expected_index]) == 0);
+                        expected_index++;
+                }
+                assert(expected_index == expected_count);
+        }
         bt_destroy(&tree);
 
         bt_add(&tree, "d", (void *) 1L);
