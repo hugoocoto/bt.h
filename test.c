@@ -21,6 +21,39 @@ bt_pretty_print_test(BT *tree)
         }
 }
 
+static int
+del_if_never(const char *key, void *value, void *ctx)
+{
+        (void) key;
+        (void) value;
+        (void) ctx;
+        return 0;
+}
+
+static int
+del_if_always(const char *key, void *value, void *ctx)
+{
+        (void) key;
+        (void) value;
+        (void) ctx;
+        return 1;
+}
+
+static int
+del_if_even_value(const char *key, void *value, void *ctx)
+{
+        (void) key;
+        (void) ctx;
+        return (((intptr_t) value) % 2) == 0;
+}
+
+static int
+del_if_key_match_ctx(const char *key, void *value, void *ctx)
+{
+        (void) value;
+        return strcmp(key, (const char *) ctx) == 0;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -179,6 +212,63 @@ main(int argc, char *argv[])
 
         bt_destroy(&tree);
         assert(bt_iter(NULL) == NULL);
+
+        /* bt_del_if tests */
+        assert(bt_del_if(&tree, del_if_always, NULL) == 0);
+        assert(bt_get(&tree, "none") == NULL);
+
+        bt_add(&tree, "a", (void *) 1L);
+        bt_add(&tree, "b", (void *) 2L);
+        bt_add(&tree, "c", (void *) 3L);
+        assert(bt_del_if(&tree, del_if_never, NULL) == 0);
+        assert(bt_get(&tree, "a") == (void *) 1L);
+        assert(bt_get(&tree, "b") == (void *) 2L);
+        assert(bt_get(&tree, "c") == (void *) 3L);
+        bt_destroy(&tree);
+
+        bt_add(&tree, "a", (void *) 1L);
+        bt_add(&tree, "b", (void *) 2L);
+        bt_add(&tree, "c", (void *) 3L);
+        assert(bt_del_if(&tree, del_if_always, NULL) == 3);
+        assert(bt_get(&tree, "a") == NULL);
+        assert(bt_get(&tree, "b") == NULL);
+        assert(bt_get(&tree, "c") == NULL);
+        bt_destroy(&tree);
+
+        bt_add(&tree, "d", (void *) 1L);
+        bt_add(&tree, "b", (void *) 2L);
+        bt_add(&tree, "f", (void *) 3L);
+        bt_add(&tree, "a", (void *) 4L);
+        bt_add(&tree, "c", (void *) 5L);
+        bt_add(&tree, "e", (void *) 6L);
+        bt_add(&tree, "g", (void *) 7L);
+        assert(bt_del_if(&tree, del_if_even_value, NULL) == 3);
+        assert(bt_get(&tree, "a") == NULL);
+        assert(bt_get(&tree, "d") == (void *) 1L);
+        assert(bt_get(&tree, "b") == NULL);
+        assert(bt_get(&tree, "f") == (void *) 3L);
+        assert(bt_get(&tree, "c") == (void *) 5L);
+        assert(bt_get(&tree, "e") == NULL);
+        assert(bt_get(&tree, "g") == (void *) 7L);
+        bt_destroy(&tree);
+
+        bt_add(&tree, "d", (void *) 1L);
+        bt_add(&tree, "b", (void *) 2L);
+        bt_add(&tree, "f", (void *) 3L);
+        assert(bt_del_if(&tree, del_if_key_match_ctx, (void *) "d") == 1);
+        assert(bt_get(&tree, "d") == NULL);
+        assert(bt_get(&tree, "b") == (void *) 2L);
+        assert(bt_get(&tree, "f") == (void *) 3L);
+        bt_destroy(&tree);
+
+        bt_add(&tree, "d", (void *) 1L);
+        bt_add(&tree, "b", (void *) 2L);
+        bt_add(&tree, "f", (void *) 3L);
+        assert(bt_del_if(&tree, del_if_key_match_ctx, (void *) "b") == 1);
+        assert(bt_get(&tree, "b") == NULL);
+        assert(bt_get(&tree, "d") == (void *) 1L);
+        assert(bt_get(&tree, "f") == (void *) 3L);
+        bt_destroy(&tree);
 
         return 0;
 }
