@@ -168,13 +168,13 @@ main(int argc, char *argv[])
 
         {
                 const char *expected[] = { "a", "b", "c", "d", "e", "f", "g" };
-                int i = 0;
+                int expected_index = 0;
                 for_bt_each(iter, &tree) {
-                        assert(i < 7);
-                        assert(strcmp(iter->key, expected[i]) == 0);
-                        i++;
+                        assert(expected_index < 7);
+                        assert(strcmp(iter->key, expected[expected_index]) == 0);
+                        expected_index++;
                 }
-                assert(i == 7);
+                assert(expected_index == 7);
         }
 
         bt_destroy(&tree);
