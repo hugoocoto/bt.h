@@ -84,6 +84,9 @@ extern size_t bt_del_if(BT *, BT_Del_If_Callback, void *ctx); /* Delete values m
 extern void bt_destroy(BT *);                           /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);    /* Get the address of the key that matches key or NULL */
 extern BT *bt_iter(BT *);                               /* In-order iterator using local static state; tree starts/restarts iteration, NULL advances */
+/* Iteration uses static state; restart with bt_iter(tree) after structural changes
+ * (e.g. bt_del_if or bt_del during traversal) before relying on bt_iter(NULL).
+ */
 #define for_bt_each(_it_, tree_ptr) for ((_it_) = bt_iter((tree_ptr)); (_it_); (_it_) = bt_iter(NULL))
 
 typedef enum BT_Color {
@@ -478,7 +481,8 @@ bt_del_if_rec(BT *tree, BT *node, BT_Del_If_Callback predicate, void *ctx)
 size_t
 bt_del_if(BT *tree, BT_Del_If_Callback predicate, void *ctx)
 {
-        if (!tree || !tree->key || !predicate) return 0;
+        if (!tree || !predicate) return 0;
+        if (!tree->key) return 0;
 
         /* bt_iter uses static state; callers should restart iteration after mass deletions. */
         return bt_del_if_rec(tree, tree, predicate, ctx);
