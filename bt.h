@@ -67,16 +67,27 @@ extern "C" {
 #ifndef BT_H_
 #define BT_H_
 
+#include <stddef.h>
+
 typedef struct BT BT;
 typedef void (*Value_Delete_Callback)(void *);
+/* Predicate for bt_del_if: return non-zero to delete current node.
+ * Callback must not mutate tree structure; violating this causes undefined behavior.
+ */
+typedef int (*BT_Del_If_Callback)(const char *key, void *value, void *ctx);
 
 /* CRUD Data structure (Create, Read, Update and Delete) */
 extern void bt_add(BT *, const char *key, void *value); /* Add or replace a value with a given a key */
 extern void *bt_get(BT *, const char *key);             /* Get a value with a given a key, or NULL */
 extern void bt_del(BT *, const char *key);              /* Delete a value with a given key */
+extern size_t bt_del_if(BT *, BT_Del_If_Callback, void *ctx); /* Delete values matching predicate; returns removed count */
 extern void bt_destroy(BT *);                           /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);    /* Get the address of the key that matches key or NULL */
 extern BT *bt_iter(BT *);                               /* In-order iterator using local static state; tree starts/restarts iteration, NULL advances */
+/* Iteration uses static state; after structural changes restart with bt_iter(tree)
+ * before relying on bt_iter(NULL). Do not call bt_del_if while iterating.
+ */
+#define for_bt_each(_it_, tree_ptr) for ((_it_) = bt_iter((tree_ptr)); (_it_); (_it_) = bt_iter(NULL))
 
 typedef enum BT_Color {
         BT_C_NONE,
@@ -445,6 +456,34 @@ bt_del(BT *tree, const char *key)
         if (tree->right) tree->right->parent = tree;
         tree->parent = NULL;
         free(child);
+}
+
+static size_t
+bt_del_if_rec(BT *tree, BT *node, BT_Del_If_Callback predicate, void *ctx)
+{
+        if (!node) return 0;
+
+        BT *left = node->left;
+        BT *right = node->right;
+        size_t removed = 0;
+
+        removed += bt_del_if_rec(tree, left, predicate, ctx);
+        removed += bt_del_if_rec(tree, right, predicate, ctx);
+
+        if (predicate(node->key, node->value, ctx)) {
+                bt_del(tree, node->key);
+                removed++;
+        }
+
+        return removed;
+}
+
+size_t
+bt_del_if(BT *tree, BT_Del_If_Callback predicate, void *ctx)
+{
+        if (!tree || !predicate) return 0;
+        if (!tree->key) return 0;
+        return bt_del_if_rec(tree, tree, predicate, ctx);
 }
 
 
