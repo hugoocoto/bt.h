@@ -83,11 +83,18 @@ extern void bt_del(BT *, const char *key);              /* Delete a value with a
 extern size_t bt_del_if(BT *, BT_Del_If_Callback, void *ctx); /* Delete values matching predicate; returns removed count */
 extern void bt_destroy(BT *);                           /* Destroy the tree */
 extern char *bt_get_key_addr(BT *, const char *key);    /* Get the address of the key that matches key or NULL */
-extern BT *bt_iter(BT *);                               /* In-order iterator using local static state; tree starts/restarts iteration, NULL advances */
-/* Iteration uses static state; after structural changes restart with bt_iter(tree)
- * before relying on bt_iter(NULL). Do not call bt_del_if while iterating.
- */
-#define for_bt_each(_it_, tree_ptr) for ((_it_) = bt_iter((tree_ptr)); (_it_); (_it_) = bt_iter(NULL))
+
+/* In-order walk, smallest key first. A walk keeps no state of its own, so
+ * walks can nest and run on several trees at once. Don't add or delete while
+ * walking: that moves entries between nodes. */
+extern BT *bt_first(BT *);     /* The first entry, or NULL if the tree is empty */
+extern BT *bt_next(BT *node);  /* The entry after NODE, or NULL */
+#define for_bt_each(_it_, tree_ptr) for ((_it_) = bt_first((tree_ptr)); (_it_); (_it_) = bt_next((_it_)))
+
+/* Older in-order iterator, kept for compatibility: tree starts/restarts
+ * iteration, NULL advances. It has one static state for the whole program, so
+ * two walks with it can't overlap; prefer bt_first/bt_next. */
+extern BT *bt_iter(BT *);
 
 typedef enum BT_Color {
         BT_C_NONE,
@@ -401,91 +408,161 @@ bt_get_key_addr(BT *tree, const char *key)
         return node ? node->key : NULL;
 }
 
+/* Rotate at NODE, and return where NODE's entry is afterwards: NODE itself,
+ * or, when NODE is the root object (rotated in place, see bt_rotate_left),
+ * the child that took its place */
+static BT *
+bt_rotate_left_at(BT *node)
+{
+        BT *right = node->right;
+        bt_rotate_left(node);
+        return node->parent ? node : right;
+}
+
+static BT *
+bt_rotate_right_at(BT *node)
+{
+        BT *left = node->left;
+        bt_rotate_right(node);
+        return node->parent ? node : left;
+}
+
+/* X (maybe NULL), a child of PARENT, took the place of a black node that was
+ * removed: its subtree is a black short. Recolor and rotate until the tree is
+ * a red-black tree again. */
+static void
+bt_delete_fixup(BT *tree, BT *x, BT *parent)
+{
+        while (x != tree && !bt_is_red(x)) {
+                if (x == parent->left) {
+                        BT *w = parent->right; /* never NULL: its side has a black more */
+                        if (bt_is_red(w)) {
+                                w->color = BT_C_BLACK;
+                                parent->color = BT_C_RED;
+                                parent = bt_rotate_left_at(parent);
+                                w = parent->right;
+                        }
+                        if (!bt_is_red(w->left) && !bt_is_red(w->right)) {
+                                w->color = BT_C_RED;
+                                x = parent;
+                                parent = x->parent;
+                                continue;
+                        }
+                        if (!bt_is_red(w->right)) {
+                                w->left->color = BT_C_BLACK;
+                                w->color = BT_C_RED;
+                                bt_rotate_right(w); /* w has a parent: not in place */
+                                w = parent->right;
+                        }
+                        w->color = parent->color;
+                        parent->color = BT_C_BLACK;
+                        w->right->color = BT_C_BLACK;
+                        bt_rotate_left_at(parent);
+                } else {
+                        BT *w = parent->left;
+                        if (bt_is_red(w)) {
+                                w->color = BT_C_BLACK;
+                                parent->color = BT_C_RED;
+                                parent = bt_rotate_right_at(parent);
+                                w = parent->left;
+                        }
+                        if (!bt_is_red(w->left) && !bt_is_red(w->right)) {
+                                w->color = BT_C_RED;
+                                x = parent;
+                                parent = x->parent;
+                                continue;
+                        }
+                        if (!bt_is_red(w->left)) {
+                                w->right->color = BT_C_BLACK;
+                                w->color = BT_C_RED;
+                                bt_rotate_left(w);
+                                w = parent->left;
+                        }
+                        w->color = parent->color;
+                        parent->color = BT_C_BLACK;
+                        w->left->color = BT_C_BLACK;
+                        bt_rotate_right_at(parent);
+                }
+                x = tree;
+        }
+        if (x) x->color = BT_C_BLACK;
+}
+
 void
 bt_del(BT *tree, const char *key)
 {
         BT *node = bt_node_get(tree, key);
         if (!node) return;
 
-        BT *to_remove = node;
-        char *removed_key;
-        void *removed_value;
+        char *removed_key = node->key;
+        void *removed_value = node->value;
 
+        /* With two children, the node takes its successor's entry, and the
+         * successor, which has at most one child, is removed instead */
+        BT *y = node;
         if (node->left && node->right) {
-                BT *successor = bt_node_min(node->right);
-                removed_key = node->key;
-                removed_value = node->value;
-                node->key = successor->key;
-                node->value = successor->value;
-                to_remove = successor;
-                to_remove->key = NULL;
-                to_remove->value = NULL;
-        } else {
-                removed_key = to_remove->key;
-                removed_value = to_remove->value;
+                y = bt_node_min(node->right);
+                node->key = y->key;
+                node->value = y->value;
         }
+        BT *x = y->left ? y->left : y->right;
 
-        BT *child = to_remove->left ? to_remove->left : to_remove->right;
-
-        if (to_remove->parent) {
-                if (to_remove->parent->left == to_remove) to_remove->parent->left = child;
-                else to_remove->parent->right = child;
-                if (child) child->parent = to_remove->parent;
+        if (!y->parent) {
+                /* The root object stays. Its only child, if any, is a red
+                 * leaf: the root takes its entry. */
+                if (x) {
+                        y->key = x->key;
+                        y->value = x->value;
+                        y->left = x->left;
+                        y->right = x->right;
+                        if (y->left) y->left->parent = y;
+                        if (y->right) y->right->parent = y;
+                        free(x);
+                        y->color = BT_C_BLACK;
+                } else {
+                        y->key = NULL;
+                        y->value = NULL;
+                        y->color = BT_C_NONE;
+                }
                 bt_release_pair(removed_key, removed_value);
-                free(to_remove);
                 return;
         }
 
+        BT *parent = y->parent;
+        if (parent->left == y)
+                parent->left = x;
+        else
+                parent->right = x;
+        if (x) x->parent = parent;
+        if (y->color == BT_C_BLACK) bt_delete_fixup(tree, x, parent);
+        free(y);
         bt_release_pair(removed_key, removed_value);
-        if (!child) {
-                tree->key = NULL;
-                tree->value = NULL;
-                tree->parent = NULL;
-                tree->left = NULL;
-                tree->right = NULL;
-                tree->color = BT_C_NONE;
-                return;
-        }
-
-        tree->key = child->key;
-        tree->value = child->value;
-        tree->color = child->color;
-        tree->left = child->left;
-        tree->right = child->right;
-        if (tree->left) tree->left->parent = tree;
-        if (tree->right) tree->right->parent = tree;
-        tree->parent = NULL;
-        free(child);
-}
-
-static size_t
-bt_del_if_rec(BT *tree, BT *node, BT_Del_If_Callback predicate, void *ctx)
-{
-        if (!node) return 0;
-
-        BT *left = node->left;
-        BT *right = node->right;
-        size_t removed = 0;
-
-        removed += bt_del_if_rec(tree, left, predicate, ctx);
-        removed += bt_del_if_rec(tree, right, predicate, ctx);
-
-        if (predicate(node->key, node->value, ctx)) {
-                bt_del(tree, node->key);
-                removed++;
-        }
-
-        return removed;
 }
 
 size_t
 bt_del_if(BT *tree, BT_Del_If_Callback predicate, void *ctx)
 {
-        if (!tree || !predicate) return 0;
-        if (!tree->key) return 0;
-        return bt_del_if_rec(tree, tree, predicate, ctx);
-}
+        if (!tree || !predicate || !tree->key) return 0;
 
+        /* Deleting rotates the tree, so the keys to delete are found first */
+        size_t count = 0, cap = 0;
+        char **keys = NULL;
+        for (BT *node = bt_first(tree); node; node = bt_next(node)) {
+                if (!predicate(node->key, node->value, ctx)) continue;
+                if (count == cap) {
+                        cap = cap ? cap * 2 : 8;
+                        keys = (char **) realloc(keys, cap * sizeof *keys);
+                        assert(keys);
+                }
+                keys[count++] = BT_STRDUP(node->key);
+        }
+        for (size_t i = 0; i < count; i++) {
+                bt_del(tree, keys[i]);
+                free(keys[i]);
+        }
+        free(keys);
+        return count;
+}
 
 void *
 bt_get(BT *tree, const char *key)
@@ -510,6 +587,26 @@ bt_iter_rec(BT *root, BT *current, int next_mode)
                 return left_candidate ? left_candidate : root;
         }
         return bt_iter_rec(root->right, current, 1);
+}
+
+BT *
+bt_first(BT *tree)
+{
+        if (!tree || !tree->key) return NULL;
+        while (tree->left) tree = tree->left;
+        return tree;
+}
+
+BT *
+bt_next(BT *node)
+{
+        if (node->right) {
+                node = node->right;
+                while (node->left) node = node->left;
+                return node;
+        }
+        while (node->parent && node == node->parent->right) node = node->parent;
+        return node->parent;
 }
 
 BT *

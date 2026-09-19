@@ -1,4 +1,4 @@
-name: yaci tests
+name: bt.h tests
 on: [push, pull_request]
 
 jobs:
@@ -13,4 +13,8 @@ jobs:
       - name: Build tests
         run: |
           make CC=${{ matrix.cc }}
+          ./test
+      - name: Tests under the sanitizers
+        run: |
+          make -B CC=${{ matrix.cc }} FLAGS="-Wall -Wextra -Werror -g -std=c99 -fsanitize=address,undefined -fno-sanitize-recover=all"
           ./test

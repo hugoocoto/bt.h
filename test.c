@@ -54,6 +54,160 @@ del_if_key_match_ctx(const char *key, void *value, void *ctx)
         return strcmp(key, (const char *) ctx) == 0;
 }
 
+/* Check that NODE's subtree is a red-black tree with keys between LO and HI
+ * (NULL: no bound) and parent links to PARENT. Counts its entries in COUNT
+ * and returns its black height. */
+static int
+check_node(BT *node, BT *parent, const char *lo, const char *hi, int *count)
+{
+        if (!node) return 1;
+        assert(node->key);
+        assert(node->parent == parent);
+        assert(!lo || strcmp(lo, node->key) < 0);
+        assert(!hi || strcmp(node->key, hi) < 0);
+        assert(node->color == BT_C_RED || node->color == BT_C_BLACK);
+        if (node->color == BT_C_RED) {
+                assert(!node->left || node->left->color == BT_C_BLACK);
+                assert(!node->right || node->right->color == BT_C_BLACK);
+        }
+        int left = check_node(node->left, node, lo, node->key, count);
+        int right = check_node(node->right, node, node->key, hi, count);
+        assert(left == right);
+        (*count)++;
+        return left + (node->color == BT_C_BLACK);
+}
+
+static int
+height(BT *node)
+{
+        if (!node) return 0;
+        int l = height(node->left), r = height(node->right);
+        return 1 + (l > r ? l : r);
+}
+
+/* Check the whole tree, return how many entries it has */
+static int
+check_tree(BT *tree)
+{
+        int count = 0;
+        if (!tree->key) {
+                assert(!tree->left && !tree->right);
+                return 0;
+        }
+        assert(!tree->parent);
+        assert(tree->color == BT_C_BLACK);
+        check_node(tree, NULL, NULL, NULL, &count);
+        /* A red-black tree of n entries is at most 2 log2(n + 1) high */
+        int limit = 0;
+        for (int n = count + 1; n > 1; n /= 2) limit++;
+        assert(height(tree) <= 2 * (limit + 1));
+        return count;
+}
+
+static unsigned
+rnd(void)
+{
+        static unsigned x = 2463534242u; /* xorshift: the same run every time */
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        return x;
+}
+
+static int
+del_if_multiple_of_3(const char *key, void *value, void *ctx)
+{
+        (void) key;
+        (void) ctx;
+        return ((intptr_t) value) % 3 == 0;
+}
+
+/* Random adds and deletes, checked against a plain array after each one */
+static void
+test_random(void)
+{
+        enum { N = 2000, OPS = 40000 };
+        static char present[N];
+        BT tree = { 0 };
+        int count = 0;
+        char key[16];
+
+        for (int op = 0; op < OPS; op++) {
+                int k = (int) (rnd() % N);
+                sprintf(key, "k%05d", k);
+                /* Grow first, then shrink, then mixed */
+                int add = op < OPS / 3 ? rnd() % 4 != 0 : op < 2 * OPS / 3 ? rnd() % 4 == 0 : rnd() % 2;
+                if (add) {
+                        bt_add(&tree, key, (void *) (intptr_t) (k + 1));
+                        if (!present[k]) count++;
+                        present[k] = 1;
+                } else {
+                        bt_del(&tree, key);
+                        if (present[k]) count--;
+                        present[k] = 0;
+                }
+                assert(check_tree(&tree) == count);
+                assert((bt_get(&tree, key) != NULL) == present[k]);
+        }
+        for (int k = 0; k < N; k++) {
+                sprintf(key, "k%05d", k);
+                assert(bt_get(&tree, key) == (present[k] ? (void *) (intptr_t) (k + 1) : NULL));
+        }
+
+        /* The walk sees every entry, in order */
+        int seen = 0;
+        const char *last = NULL;
+        BT *it;
+        for_bt_each(it, &tree) {
+                assert(!last || strcmp(last, it->key) < 0);
+                last = it->key;
+                seen++;
+        }
+        assert(seen == count);
+
+        /* Deleting by predicate keeps it balanced */
+        int threes = 0;
+        for (int k = 0; k < N; k++) threes += present[k] && (k + 1) % 3 == 0;
+        assert(bt_del_if(&tree, del_if_multiple_of_3, NULL) == (size_t) threes);
+        assert(check_tree(&tree) == count - threes);
+
+        /* Delete everything, in order */
+        for (int k = 0; k < N; k++) {
+                sprintf(key, "k%05d", k);
+                bt_del(&tree, key);
+                check_tree(&tree);
+        }
+        assert(check_tree(&tree) == 0 && bt_first(&tree) == NULL);
+        bt_destroy(&tree);
+}
+
+/* Walks don't share state: they nest, on the same tree or on others */
+static void
+test_nested_walks(void)
+{
+        BT a = { 0 }, b = { 0 };
+        const char *keys[] = { "m", "c", "x", "a", "e", "q", "z" };
+        for (int i = 0; i < 7; i++) {
+                bt_add(&a, keys[i], (void *) 1L);
+                bt_add(&b, keys[i], (void *) 1L);
+        }
+        BT *i, *j;
+        int pairs = 0, ordered = 0;
+        for_bt_each(i, &a) {
+                for_bt_each(j, &a) {
+                        pairs++;
+                        ordered += strcmp(i->key, j->key) < 0;
+                }
+                for_bt_each(j, &b) pairs++;
+        }
+        assert(pairs == 2 * 7 * 7);
+        assert(ordered == 7 * 6 / 2);
+        assert(bt_first(NULL) == NULL);
+        bt_destroy(&a);
+        assert(bt_first(&a) == NULL);
+        bt_destroy(&b);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -283,6 +437,8 @@ main(int argc, char *argv[])
         assert(bt_get(&tree, "f") == (void *) 3L);
         bt_destroy(&tree);
 
+        test_random();
+        test_nested_walks();
         return 0;
 }
 

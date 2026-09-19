@@ -1,7 +1,11 @@
 # Red-Black Tree
 
-Insertion now performs simple functional red-black balancing.
-Delete operation is now available.
+A red-black tree with string keys: adding, finding and deleting are
+O(log n), and deleting keeps it balanced too.
+
+Walks in key order (`bt_first`/`bt_next`, or `for_bt_each`) keep no state of
+their own, so they can nest. The older `bt_iter` still works, but has one state
+for the whole program.
 
 ## Public API
 
